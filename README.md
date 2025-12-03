@@ -1,116 +1,240 @@
-# Py Chat
+# Flask-SocketIO Chat Server
 
-## Plan
+Phase 1-2 implementation: Basic WebSocket Connection and Echo Server
 
-### Phase 1: Basic WebSocket Connection
+## Project Structure
 
-Goal: Get a connection working between one client and server
+```
+server/
+├── app.py                      # Main application entry point
+├── config.py                   # Configuration management
+├── requirements.txt            # Python dependencies
+├── .env.example               # Environment variables template
+├── test_client.html           # HTML test client
+├── app/
+│   ├── __init__.py           # App factory
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── user.py           # User model (for future phases)
+│   ├── events/
+│   │   ├── __init__.py
+│   │   └── socket_events.py  # SocketIO event handlers
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   └── api.py            # REST API routes
+│   ├── services/
+│   │   ├── __init__.py
+│   │   └── db_service.py     # Database service
+│   └── utils/
+│       ├── __init__.py
+│       └── logger.py         # Logging configuration
+└── .gitignore
+```
 
-Set up a basic WebSocket server that accepts connections
-Create a simple HTML page with JavaScript that connects to your server
-Make the connection print "connected" on both sides
-Test disconnection handling—close the browser tab and verify the server notices
+## Setup Instructions
 
-Success metric: You can open your browser, connect to the server, and see confirmation messages on both ends.
+### 1. Create Virtual Environment
 
-### Phase 2: Echo Server
+```bash
+# Navigate to server directory
+cd server
 
-Goal: Send messages from client to server and back
+# Create virtual environment
+python3 -m venv venv
 
-Add a text input and send button to your HTML page
-Send whatever the user types to the server through the WebSocket
-Have the server receive the message and send it back to the same client
-Display received messages on the page
+# Activate virtual environment
+# On Linux/Mac:
+source venv/bin/activate
+# On Windows:
+venv\Scripts\activate
+```
 
-Success metric: You type "hello" in the browser, hit send, and see it appear on the page (echoed back from the server).
+### 2. Install Dependencies
 
-### Phase 3: Two Clients Talking
+```bash
+pip install -r requirements.txt
+```
 
-Goal: Messages from one client reach another client
+### 3. Configure Environment
 
-Modify server to track multiple connected clients in a list
-When a message comes in, send it to all connected clients (not just the sender)
-Open two browser tabs and verify messages sent from one appear in the other
-Handle the case where you might want to exclude the sender from the broadcast (or not—your choice)
+```bash
+# Copy the example environment file
+cp .env.example .env
 
-Success metric: Open two browser tabs, send a message from one, see it appear in both.
+# Edit .env if needed (optional for development)
+```
 
-### Phase 4: User Identity
+### 4. Run the Server
 
-Goal: Know who sent each message
+```bash
+# Run the server
+python app.py
+```
 
-Add a simple username prompt when someone first connects
-Send the username to the server as the first message after connecting
-Store username with each connection in your server's connection list
-Include the username in every message broadcast so clients can display "Alice: hello"
+The server will start on `http://localhost:5000` by default.
 
-Success metric: Messages show who sent them, like "Alice: hello" and "Bob: hi there"
+## Testing the Server
 
-### Phase 5: Basic Database Integration
+### Option 1: HTML Test Client (Recommended)
 
-Goal: Persist messages so they survive server restarts
+1. Open `test_client.html` in your web browser
+2. Ensure server URL is set to `http://localhost:5000`
+3. Click "Connect" button
+4. Try the different features:
+   - **Ping**: Test connection health
+   - **Get Status**: Get server status and client count
+   - **Echo**: Send a message and receive it back
+   - **Message**: Send a chat message
 
-Set up a simple SQLite database with a messages table (id, sender, recipient, content, timestamp)
-When a message comes in, save it to the database before broadcasting
-When a user connects, load and send them recent message history
-Test by restarting the server and verifying messages are still there
+### Option 2: REST API Endpoints
 
-Success metric: Stop the server, restart it, reconnect—previous messages are still visible.
+Test with curl or browser:
 
-### Phase 6: Direct Messaging Logic
+```bash
+# Health check
+curl http://localhost:5000/api/health
 
-Goal: Send messages to specific users, not everyone
+# Server status
+curl http://localhost:5000/api/status
 
-Add recipient information to messages—each message specifies who it's for
-Modify server broadcast logic to only send to the intended recipient (and sender for confirmation)
-Create a UI element for selecting who to message (could be a dropdown or simple text input)
-Store recipient info in the database
+# Connected clients
+curl http://localhost:5000/api/clients
 
-Success metric: Three people connected—Alice messages Bob, Carol doesn't see it.
+# API info
+curl http://localhost:5000/api
+```
 
-### Phase 7: Conversation Threads
+### Option 3: Python SocketIO Client
 
-Goal: Organize messages into conversations between two people
+```python
+import socketio
 
-When loading history, only load messages between the current user and their selected conversation partner
-Create a conversation list UI showing who you can message
-When you click a person, load your conversation with them
-Implement unread message indicators (count messages where recipient is you and you haven't seen them yet)
+# Create a Socket.IO client
+sio = socketio.Client()
 
-Success metric: You can switch between conversations with different people and see the right message history for each.
+# Connect to server
+sio.connect('http://localhost:5000')
 
-### Phase 8: Authentication
+# Send echo
+sio.emit('echo', 'Hello, Server!')
 
-Goal: Replace username prompts with proper login
+# Send message
+sio.emit('message', {'content': 'Test message'})
 
-Create a simple registration/login page (HTTP, not WebSocket)
-Use sessions or JWT tokens to identify users
-Verify the token when someone connects via WebSocket
-Associate WebSocket connections with authenticated user IDs
+# Disconnect
+sio.disconnect()
+```
 
-Success metric: Users must log in before chatting, and the system correctly identifies them.
+## Available SocketIO Events
 
-### Phase 9: Polish & Edge Cases
+### Client to Server
 
-Goal: Handle real-world scenarios gracefully
+| Event        | Description          | Data Format                   |
+| ------------ | -------------------- | ----------------------------- |
+| `connect`    | Establish connection | (automatic)                   |
+| `disconnect` | Close connection     | (automatic)                   |
+| `echo`       | Echo test            | Any data                      |
+| `message`    | Send chat message    | `{'content': 'message text'}` |
+| `ping`       | Health check         | (no data)                     |
+| `get_status` | Get server status    | (no data)                     |
 
-Show "user is typing" indicators
-Display online/offline status
-Handle reconnection when someone's internet drops temporarily
-Add message timestamps to the UI
-Improve error messages and loading states
-Test with spotty internet connections
+### Server to Client
 
-Success metric: App feels responsive and handles network issues without breaking.
+| Event                 | Description          | Data Format                                                        |
+| --------------------- | -------------------- | ------------------------------------------------------------------ |
+| `connection_response` | Connection confirmed | `{'status', 'client_id', 'message', 'timestamp'}`                  |
+| `client_joined`       | New client connected | `{'client_id', 'total_clients', 'timestamp'}`                      |
+| `client_left`         | Client disconnected  | `{'client_id', 'total_clients', 'timestamp'}`                      |
+| `echo_response`       | Echo reply           | `{'original_data', 'client_id', 'timestamp'}`                      |
+| `message_response`    | Message echo         | `{'content', 'sender_id', 'timestamp'}`                            |
+| `pong`                | Ping reply           | `{'client_id', 'timestamp'}`                                       |
+| `status_response`     | Status info          | `{'client_id', 'total_clients', 'connected_clients', 'timestamp'}` |
+| `error`               | Error message        | `{'error', 'message', 'timestamp'}`                                |
 
-### Phase 10: Deployment
+## Configuration
 
-Goal: Make it accessible online
+### Environment Variables
 
-Deploy server to a hosting platform (Heroku, DigitalOcean, Railway, etc.)
-Set up proper WebSocket support (some hosts need special configuration)
-Deploy your database (or use a hosted database)
-Get HTTPS working (required for secure WebSocket connections—wss://)
-Test with friends on different networks
+Edit `.env` file or set environment variables:
 
-Success metric: You and a friend can chat from different locations over the internet.
+| Variable        | Default          | Description                                  |
+| --------------- | ---------------- | -------------------------------------------- |
+| `FLASK_ENV`     | `development`    | Environment (development/testing/production) |
+| `HOST`          | `0.0.0.0`        | Server host                                  |
+| `PORT`          | `5000`           | Server port                                  |
+| `SECRET_KEY`    | (auto-generated) | Flask secret key                             |
+| `CORS_ORIGINS`  | `*`              | Allowed CORS origins                         |
+| `DATABASE_PATH` | `chat.db`        | SQLite database path                         |
+| `LOG_LEVEL`     | `DEBUG`          | Logging level                                |
+| `LOG_FILE`      | `server.log`     | Log file path                                |
+
+### Production Configuration
+
+For production deployment:
+
+1. Set `FLASK_ENV=production`
+2. Set a strong `SECRET_KEY`
+3. Configure specific `CORS_ORIGINS` (comma-separated)
+4. Use a proper WSGI server (gunicorn + eventlet)
+
+## Architecture
+
+### App Factory Pattern
+
+The application uses Flask's app factory pattern for better testability and flexibility:
+
+- `create_app()` function creates and configures the Flask app
+- Different configurations for development, testing, and production
+- SocketIO initialized with the app instance
+
+### Blueprints
+
+- **API Blueprint** (`/api`): REST API endpoints for health checks and status
+
+### Database
+
+- SQLite database with tables for users, messages, and sessions
+- Tables created on startup (ready for future phases)
+- Raw SQL queries via `db_service.py`
+
+### Logging
+
+- Structured logging to console and file
+- Different log levels for different environments
+- Request/event logging for debugging
+
+## Next Steps (Future Phases)
+
+This implementation covers Phase 1-2. Future phases will add:
+
+- **Phase 3**: Multi-client broadcasting (send messages to all clients)
+- **Phase 4**: User identity (usernames, user tracking)
+- **Phase 5**: Database integration (persist messages)
+- **Phase 6**: Direct messaging (send to specific users)
+- **Phase 7**: Conversation threads (group messages by conversation)
+- **Phase 8**: Authentication (login/registration with Flask sessions)
+- **Phase 9**: Polish (typing indicators, online status, reconnection)
+- **Phase 10**: Deployment (production setup)
+
+## Troubleshooting
+
+### Connection refused
+
+- Ensure server is running
+- Check that port 5000 is not in use
+- Verify firewall settings
+
+### CORS errors
+
+- Check `CORS_ORIGINS` in config
+- For development, use `*` to allow all origins
+
+### Database errors
+
+- Ensure database directory is writable
+- Check `DATABASE_PATH` in config
+
+### Module import errors
+
+- Ensure virtual environment is activated
+- Reinstall dependencies: `pip install -r requirements.txt`

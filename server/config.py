@@ -23,11 +23,16 @@ class Config:
     PORT = int(os.environ.get('PORT', 5000))
 
     # CORS
-    CORS_ORIGINS = os.environ.get('CORS_ORIGINS', '*').split(',')
+    cors_env = os.environ.get('CORS_ORIGINS', '*')
+    if cors_env == '*':
+        CORS_ORIGINS = '*'
+        SOCKETIO_CORS_ALLOWED_ORIGINS = '*'
+    else:
+        CORS_ORIGINS = cors_env.split(',')
+        SOCKETIO_CORS_ALLOWED_ORIGINS = CORS_ORIGINS
 
     # SocketIO
     SOCKETIO_ASYNC_MODE = 'eventlet'
-    SOCKETIO_CORS_ALLOWED_ORIGINS = CORS_ORIGINS
     SOCKETIO_PING_TIMEOUT = 60
     SOCKETIO_PING_INTERVAL = 25
 
