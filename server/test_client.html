@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask-SocketIO Chat Test Client</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #667eea;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .status {
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #dc3545;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #28a745;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .panel h3 {
+            margin-bottom: 15px;
+            color: #667eea;
+            font-size: 16px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #c82333;
+        }
+
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .btn-info:hover:not(:disabled) {
+            background: #138496;
+        }
+
+        .log-container {
+            grid-column: 1 / -1;
+        }
+
+        #log {
+            background: #212529;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+        }
+
+        .log-timestamp {
+            color: #888;
+        }
+
+        .log-connect {
+            color: #28a745;
+        }
+
+        .log-disconnect {
+            color: #dc3545;
+        }
+
+        .log-message {
+            color: #17a2b8;
+        }
+
+        .log-error {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Flask-SocketIO Chat Test Client</h1>
+            <p>Phase 1-2: Basic WebSocket & Echo Server Testing</p>
+        </div>
+
+        <div class="status">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Disconnected</span>
+            </div>
+            <div>
+                <span id="clientId">No Client ID</span> |
+                <span id="clientCount">0 clients</span>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="panel">
+                <h3>Connection Controls</h3>
+                <div class="control-group">
+                    <label for="serverUrl">Server URL</label>
+                    <input type="text" id="serverUrl" value="http://localhost:5000">
+                </div>
+                <div class="button-group">
+                    <button class="btn-success" id="connectBtn">Connect</button>
+                    <button class="btn-danger" id="disconnectBtn" disabled>Disconnect</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Quick Actions</h3>
+                <div class="button-group">
+                    <button class="btn-info" id="pingBtn" disabled>Ping</button>
+                    <button class="btn-info" id="statusBtn" disabled>Get Status</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>Echo Test (Phase 2)</h3>
+                <div class="control-group">
+                    <label for="echoInput">Echo Message</label>
+                    <input type="text" id="echoInput" placeholder="Type something to echo...">
+                </div>
+                <button class="btn-primary" id="echoBtn" disabled style="width: 100%;">Send Echo</button>
+            </div>
+
+            <div class="panel">
+                <h3>Message Test</h3>
+                <div class="control-group">
+                    <label for="messageInput">Message Content</label>
+                    <textarea id="messageInput" placeholder="Type your message..."></textarea>
+                </div>
+                <button class="btn-primary" id="messageBtn" disabled style="width: 100%;">Send Message</button>
+            </div>
+
+            <div class="panel log-container">
+                <h3>Event Log</h3>
+                <div id="log"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let clientId = null;
+
+        // DOM elements
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const clientIdSpan = document.getElementById('clientId');
+        const clientCountSpan = document.getElementById('clientCount');
+        const log = document.getElementById('log');
+
+        const serverUrlInput = document.getElementById('serverUrl');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const pingBtn = document.getElementById('pingBtn');
+        const statusBtn = document.getElementById('statusBtn');
+        const echoBtn = document.getElementById('echoBtn');
+        const echoInput = document.getElementById('echoInput');
+        const messageBtn = document.getElementById('messageBtn');
+        const messageInput = document.getElementById('messageInput');
+
+        // Logging function
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-timestamp">[${timestamp}]</span> ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Update UI state
+        function updateUIState(connected) {
+            connectBtn.disabled = connected;
+            disconnectBtn.disabled = !connected;
+            pingBtn.disabled = !connected;
+            statusBtn.disabled = !connected;
+            echoBtn.disabled = !connected;
+            messageBtn.disabled = !connected;
+            serverUrlInput.disabled = connected;
+
+            if (connected) {
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Connected';
+            } else {
+                statusDot.classList.remove('connected');
+                statusText.textContent = 'Disconnected';
+                clientIdSpan.textContent = 'No Client ID';
+            }
+        }
+
+        // Connect to server
+        connectBtn.addEventListener('click', () => {
+            const serverUrl = serverUrlInput.value;
+            addLog(`Connecting to ${serverUrl}...`, 'connect');
+
+            socket = io(serverUrl, {
+                transports: ['websocket', 'polling']
+            });
+
+            // Connection successful
+            socket.on('connect', () => {
+                addLog('Connected to server!', 'connect');
+                updateUIState(true);
+            });
+
+            // Connection response
+            socket.on('connection_response', (data) => {
+                clientId = data.client_id;
+                clientIdSpan.textContent = `Client ID: ${clientId.substring(0, 8)}...`;
+                addLog(`Connection confirmed: ${data.message}`, 'connect');
+            });
+
+            // Client joined
+            socket.on('client_joined', (data) => {
+                clientCountSpan.textContent = `${data.total_clients} clients`;
+                addLog(`New client joined. Total: ${data.total_clients}`, 'info');
+            });
+
+            // Client left
+            socket.on('client_left', (data) => {
+                clientCountSpan.textContent = `${data.total_clients} clients`;
+                addLog(`Client left. Total: ${data.total_clients}`, 'info');
+            });
+
+            // Disconnection
+            socket.on('disconnect', () => {
+                addLog('Disconnected from server', 'disconnect');
+                updateUIState(false);
+            });
+
+            // Echo response
+            socket.on('echo_response', (data) => {
+                addLog(`Echo received: ${JSON.stringify(data.original_data)}`, 'message');
+            });
+
+            // Message response
+            socket.on('message_response', (data) => {
+                addLog(`Message echo: ${data.content}`, 'message');
+            });
+
+            // Pong response
+            socket.on('pong', (data) => {
+                addLog('Pong received!', 'info');
+            });
+
+            // Status response
+            socket.on('status_response', (data) => {
+                addLog(`Server status: ${data.total_clients} clients connected`, 'info');
+                clientCountSpan.textContent = `${data.total_clients} clients`;
+            });
+
+            // Error
+            socket.on('error', (data) => {
+                addLog(`Error: ${data.message}`, 'error');
+            });
+
+            // Connection error
+            socket.on('connect_error', (error) => {
+                addLog(`Connection error: ${error.message}`, 'error');
+                updateUIState(false);
+            });
+        });
+
+        // Disconnect from server
+        disconnectBtn.addEventListener('click', () => {
+            if (socket) {
+                socket.disconnect();
+                addLog('Disconnecting...', 'disconnect');
+            }
+        });
+
+        // Send ping
+        pingBtn.addEventListener('click', () => {
+            socket.emit('ping');
+            addLog('Ping sent', 'info');
+        });
+
+        // Get status
+        statusBtn.addEventListener('click', () => {
+            socket.emit('get_status');
+            addLog('Status request sent', 'info');
+        });
+
+        // Send echo
+        echoBtn.addEventListener('click', () => {
+            const message = echoInput.value;
+            if (message) {
+                socket.emit('echo', message);
+                addLog(`Echo sent: ${message}`, 'message');
+                echoInput.value = '';
+            }
+        });
+
+        // Send message
+        messageBtn.addEventListener('click', () => {
+            const content = messageInput.value;
+            if (content) {
+                socket.emit('message', { content });
+                addLog(`Message sent: ${content}`, 'message');
+                messageInput.value = '';
+            }
+        });
+
+        // Enter key handlers
+        echoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !echoBtn.disabled) {
+                echoBtn.click();
+            }
+        });
+
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !messageBtn.disabled) {
+                e.preventDefault();
+                messageBtn.click();
+            }
+        });
+
+        // Initial log
+        addLog('Test client loaded. Enter server URL and click Connect.', 'info');
+    </script>
+</body>
+</html>
