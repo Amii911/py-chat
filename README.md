@@ -160,7 +160,7 @@ Edit `.env` file or set environment variables:
 | Variable        | Default          | Description                                  |
 | --------------- | ---------------- | -------------------------------------------- |
 | `FLASK_ENV`     | `development`    | Environment (development/testing/production) |
-| `HOST`          | `0.0.0.0`        | Server host                                  |
+| `HOST`          | `localhost`      | Server host                                  |
 | `PORT`          | `5000`           | Server port                                  |
 | `SECRET_KEY`    | (auto-generated) | Flask secret key                             |
 | `CORS_ORIGINS`  | `*`              | Allowed CORS origins                         |
